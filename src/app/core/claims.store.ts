@@ -12,7 +12,7 @@ export type ClaimsState = {
   toast: string
 }
 
-export type AppState = { claims: ClaimsState }
+export type AppState = { claims: ClaimsState; merge: import('./merge.store').MergeState }
 
 const persisted = localStorage.getItem('property-claims-draft-v1')
 
@@ -29,6 +29,7 @@ export const initialClaimsState: ClaimsState = persisted
     }
 
 export const loadClaimsSuccess = createAction('[Claims] Load Success', props<{ items: ClaimCase[]; total: number }>())
+export const upsertClaims = createAction('[Claims] Upsert', props<{ cases: ClaimCase[] }>())
 export const setFilters = createAction('[Claims] Set Filters', props<{ filters: Partial<ClaimFilters> }>())
 export const selectClaim = createAction('[Claims] Select', props<{ id: string }>())
 export const saveDraft = createAction('[Claims] Save Draft', props<{ draft: string }>())
@@ -38,6 +39,12 @@ export const setToast = createAction('[Claims] Toast', props<{ message: string }
 export const claimsReducer = createReducer(
   initialClaimsState,
   on(loadClaimsSuccess, (state, { items, total }) => ({ ...state, items, total, loading: false })),
+  on(upsertClaims, (state, { cases }) => ({
+    ...state,
+    items: state.items
+      .map((item) => cases.find((updated) => updated.id === item.id) ?? item)
+      .concat(cases.filter((updated) => !state.items.some((item) => item.id === updated.id))),
+  })),
   on(setFilters, (state, { filters }) => ({ ...state, filters: { ...state.filters, ...filters } })),
   on(selectClaim, (state, { id }) => ({ ...state, selectedId: id })),
   on(saveDraft, (state, { draft }) => ({ ...state, draft, toast: '草稿已恢复并保存到本地' })),
@@ -52,10 +59,14 @@ export const claimsReducer = createReducer(
 export const selectClaimsState = (state: AppState) => state.claims
 export const selectAllClaims = createSelector(selectClaimsState, (state) => state.items)
 export const selectFilters = createSelector(selectClaimsState, (state) => state.filters)
-export const selectSelectedClaim = createSelector(selectClaimsState, (state) => state.items.find((item) => item.id === state.selectedId) ?? state.items[0])
+export const selectSelectedClaim = createSelector(selectClaimsState, (state) => {
+  const active = state.items.filter((item) => !item.mergedInto)
+  return active.find((item) => item.id === state.selectedId) ?? active[0]
+})
 export const selectFilteredClaims = createSelector(selectAllClaims, selectFilters, (claims, filters) =>
   claims.filter(
     (item) =>
+      !item.mergedInto &&
       (!filters.query || `${item.id}${item.insured}${item.policyNo}`.toLowerCase().includes(filters.query.toLowerCase())) &&
       (!filters.status || item.status === filters.status) &&
       (!filters.risk || item.riskLevel === filters.risk),

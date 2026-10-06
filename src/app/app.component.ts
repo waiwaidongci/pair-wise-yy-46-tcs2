@@ -11,6 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar'
 import { Store } from '@ngrx/store'
 import { ClaimsService } from './core/claims.service'
 import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/claims.store'
+import { loadMergeStateSuccess, selectPendingCandidateCount } from './core/merge.store'
 
 @Component({
   selector: 'app-root',
@@ -55,6 +56,11 @@ import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/clai
             <mat-icon matListItemIcon>history</mat-icon>
             <span matListItemTitle>审计与附件</span>
           </a>
+          <a mat-list-item routerLink="/merge" routerLinkActive="active">
+            <mat-icon matListItemIcon>merge</mat-icon>
+            <span matListItemTitle>并案处理</span>
+            <span class="nav-badge" *ngIf="(pendingMerge$ | async) as pending">{{ pending }}</span>
+          </a>
         </mat-nav-list>
         <div class="side-note">
           <div class="sync"><i></i> 可恢复草稿已保存</div>
@@ -85,6 +91,7 @@ import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/clai
     .sync { font-size: 11px; font-weight: 700; }
     .sync i { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: #56b989; }
     .side-note small { display: block; margin-top: 6px; color: #92a8b3; font-size: 9px; }
+    .nav-badge { display: inline-grid; min-width: 18px; height: 18px; padding: 0 5px; margin-left: auto; place-items: center; border-radius: 9px; background: #ce743e; color: #fff; font-size: 10px; font-weight: 700; }
     .mobile-bar { display: none; }
     mat-sidenav-content { min-width: 0; }
     @media (max-width: 820px) {
@@ -95,16 +102,22 @@ import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/clai
 })
 export class AppComponent implements OnInit {
   mobileOpen = false
+  pendingMerge$: ReturnType<Store<AppState>['select']>
 
   constructor(
     private readonly service: ClaimsService,
     private readonly store: Store<AppState>,
     private readonly snackBar: MatSnackBar,
-  ) {}
+  ) {
+    this.pendingMerge$ = this.store.select(selectPendingCandidateCount)
+  }
 
   ngOnInit() {
     this.service.list({ query: '', status: '', risk: '', page: 1, pageSize: 10 }).subscribe((result) => {
       this.store.dispatch(loadClaimsSuccess({ items: result.items, total: result.total }))
+    })
+    this.service.mergeState().subscribe((state) => {
+      this.store.dispatch(loadMergeStateSuccess({ candidates: state.candidates, records: state.records }))
     })
     this.store.select(selectClaimsState).subscribe((state) => {
       localStorage.setItem('property-claims-draft-v1', JSON.stringify(state))

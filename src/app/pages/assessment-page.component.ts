@@ -48,6 +48,11 @@ import { StatusChipComponent } from '../shared/status-chip.component'
         </div>
       </div>
 
+      <div class="merge-notice" *ngIf="claim.sourceOf?.length">
+        <mat-icon>merge</mat-icon>
+        <div><strong>并案主案</strong><span>已并入 {{ claim.sourceOf!.join('、') }}，来源引用保留；重复科目金额并列如下，原会签已失效待复核。</span></div>
+      </div>
+
       <div class="summary-grid">
         <mat-card appearance="outlined"><span>损失科目</span><strong>{{ claim.lossItems.length }}</strong><small>{{ disputedCount(claim) }} 项存在争议</small></mat-card>
         <mat-card appearance="outlined"><span>修复报价合计</span><strong>{{ quoteTotal(claim) | currency:'CNY':'symbol':'1.0-0' }}</strong><small>取各科目最新报价</small></mat-card>
@@ -72,12 +77,17 @@ import { StatusChipComponent } from '../shared/status-chip.component'
               </mat-expansion-panel-header>
               <div class="loss-body">
                 <div class="facts">
-                  <label>损失事实</label>
+                  <label>损失事实 <span class="source-tag" *ngIf="item.sourceCaseId">来源 {{ item.sourceCaseId }}</span><span class="source-tag" *ngIf="item.sourceCaseIds?.length">并入 {{ item.sourceCaseIds!.join('、') }}</span></label>
                   <textarea [(ngModel)]="item.damage" rows="3"></textarea>
                   <div class="inline-fields">
                     <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>残值</mat-label><input matInput type="number" [(ngModel)]="item.salvage" /></mat-form-field>
                     <mat-form-field appearance="outline" subscriptSizing="dynamic"><mat-label>责任比例</mat-label><input matInput type="number" step="0.05" [(ngModel)]="item.liability" /></mat-form-field>
                   </div>
+                </div>
+                <div class="amount-basis" *ngIf="item.amountBasis">
+                  <div><small>主案金额</small><strong>{{ item.amountBasis.main | currency:'CNY':'symbol':'1.0-0' }}</strong></div>
+                  <div><small>并案金额</small><strong>{{ item.amountBasis.merged | currency:'CNY':'symbol':'1.0-0' }}</strong></div>
+                  <span class="basis-note">重复科目金额并列，取主案金额计入准备金</span>
                 </div>
                 <div class="quote-history">
                   <h4>报价版本</h4>
@@ -157,6 +167,16 @@ import { StatusChipComponent } from '../shared/status-chip.component'
     .draft-panel small { display: block; margin: -6px 14px 0; color: #7d8991; }
     @media (max-width: 1050px) { .assessment-grid { grid-template-columns: 1fr; } .summary-grid { grid-template-columns: repeat(2,1fr); } }
     @media (max-width: 620px) { .summary-grid { grid-template-columns: 1fr 1fr; } }
+    .merge-notice { display: flex; align-items: center; gap: 10px; padding: 12px 14px; margin-bottom: 14px; border: 1px solid #2f8191; border-radius: 8px; background: #eaf4f5; }
+    .merge-notice > mat-icon { color: #175866; }
+    .merge-notice strong { display: block; color: #175866; font-size: 12px; }
+    .merge-notice span { color: #4f626d; font-size: 11px; }
+    .source-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 9px; background: #fff0e4; color: #984313; font-size: 10px; font-weight: 600; }
+    .amount-basis { display: flex; align-items: center; gap: 18px; padding: 10px 12px; background: #f5f8f9; border-left: 3px solid #2f8191; border-radius: 4px; }
+    .amount-basis > div { display: flex; flex-direction: column; }
+    .amount-basis small { color: #7b8790; font-size: 10px; }
+    .amount-basis strong { color: #153747; font-size: 15px; }
+    .basis-note { color: #7b8790; font-size: 10px; }
   `],
 })
 export class AssessmentPageComponent {
