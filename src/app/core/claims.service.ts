@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http'
 import { Injectable } from '@angular/core'
-import type { ClaimCase, ClaimFilters, PagedClaims } from './models'
+import type { ClaimCase, ClaimFilters, MergeCommandResponse, PagedClaims } from './models'
 
 @Injectable({ providedIn: 'root' })
 export class ClaimsService {
@@ -21,10 +21,40 @@ export class ClaimsService {
   }
 
   addQuote(claimId: string, body: { itemId: string; amount: number; reason: string }) {
-    return this.http.post(`/api/claims/${claimId}/quotes`, body)
+    return this.http.post<ClaimCase>(`/api/claims/${claimId}/quotes`, body)
   }
 
   approve(claimId: string, body: { role: string; result: string; comment: string }) {
-    return this.http.post(`/api/claims/${claimId}/approvals`, body)
+    return this.http.post<ClaimCase>(`/api/claims/${claimId}/approvals`, body)
+  }
+
+  // -------- 并案处理 --------
+
+  mergeBoard() {
+    return this.http.get<MergeCommandResponse>('/api/merges')
+  }
+
+  rescanCandidates(operator = '当前主管') {
+    return this.http.post<MergeCommandResponse>('/api/merges/rescan', { operator })
+  }
+
+  freezeMerge(sessionId: string, operator: string) {
+    return this.http.post<MergeCommandResponse>('/api/merges/freeze', { sessionId, operator })
+  }
+
+  confirmMerge(sessionId: string, operator: string, chosenMasterId: string, simulateFailure = false) {
+    return this.http.post<MergeCommandResponse>('/api/merges/confirm', { sessionId, operator, chosenMasterId, simulateFailure })
+  }
+
+  undoMerge(sessionId: string, operator: string) {
+    return this.http.post<MergeCommandResponse>('/api/merges/undo', { sessionId, operator })
+  }
+
+  resolveConflict(sessionId: string, operator: string, resolution: '接受主案' | '维持分歧') {
+    return this.http.post<MergeCommandResponse>('/api/merges/conflicts/resolve', { sessionId, operator, resolution })
+  }
+
+  discardCandidate(sessionId: string, operator: string) {
+    return this.http.post<MergeCommandResponse>('/api/merges/discard', { sessionId, operator })
   }
 }

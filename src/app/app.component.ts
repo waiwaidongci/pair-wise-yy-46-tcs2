@@ -10,7 +10,7 @@ import { MatChipsModule } from '@angular/material/chips'
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar'
 import { Store } from '@ngrx/store'
 import { ClaimsService } from './core/claims.service'
-import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/claims.store'
+import { mergeBoardLoaded, selectClaimsState, type AppState } from './core/claims.store'
 
 @Component({
   selector: 'app-root',
@@ -43,6 +43,11 @@ import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/clai
             <mat-icon matListItemIcon>dashboard</mat-icon>
             <span matListItemTitle>案件总览</span>
           </a>
+          <a mat-list-item routerLink="/merges" routerLinkActive="active">
+            <mat-icon matListItemIcon>join_full</mat-icon>
+            <span matListItemTitle>并案处理</span>
+            <span class="nav-badge" *ngIf="conflictCount > 0">{{ conflictCount }}</span>
+          </a>
           <a mat-list-item routerLink="/assessment" routerLinkActive="active">
             <mat-icon matListItemIcon>fact_check</mat-icon>
             <span matListItemTitle>查勘定损</span>
@@ -57,8 +62,8 @@ import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/clai
           </a>
         </mat-nav-list>
         <div class="side-note">
-          <div class="sync"><i></i> 可恢复草稿已保存</div>
-          <small>最后同步 16:42 · 规则版本 2026.09</small>
+          <div class="sync"><i></i> 并案快照已持久化</div>
+          <small>重开页面后候选、记录与未决冲突仍在 · 规则版本 2026.10</small>
         </div>
       </mat-sidenav>
       <mat-sidenav-content>
@@ -81,6 +86,7 @@ import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/clai
     mat-nav-list { padding: 16px 10px; }
     mat-nav-list a { margin-bottom: 4px; border-radius: 7px; color: #b9cbd4; }
     mat-nav-list a.active { color: #fff; background: #235062; box-shadow: inset 3px 0 #66b6c2; }
+    .nav-badge { margin-left: auto; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #c4613b; color: #fff; font-size: 10px; line-height: 18px; text-align: center; }
     .side-note { position: absolute; right: 12px; bottom: 14px; left: 12px; padding: 12px; border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: rgba(255,255,255,.04); }
     .sync { font-size: 11px; font-weight: 700; }
     .sync i { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: #56b989; }
@@ -95,6 +101,8 @@ import { loadClaimsSuccess, selectClaimsState, type AppState } from './core/clai
 })
 export class AppComponent implements OnInit {
   mobileOpen = false
+  conflictCount = 0
+  private lastToast = ''
 
   constructor(
     private readonly service: ClaimsService,
@@ -103,12 +111,25 @@ export class AppComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.service.list({ query: '', status: '', risk: '', page: 1, pageSize: 10 }).subscribe((result) => {
-      this.store.dispatch(loadClaimsSuccess({ items: result.items, total: result.total }))
+    this.refresh()
+    this.store.select((state) => state.claims.unresolvedConflicts).subscribe((conflicts) => {
+      this.conflictCount = conflicts.length
     })
     this.store.select(selectClaimsState).subscribe((state) => {
-      localStorage.setItem('property-claims-draft-v1', JSON.stringify(state))
-      if (state.toast) this.snackBar.open(state.toast, '关闭', { duration: 1800 })
+      // 案件、快照、会话由并案引擎持久化；这里仅保留查勘草稿与全局提示
+      localStorage.setItem('claims-assessment-draft', state.draft)
+      if (state.toast && state.toast !== this.lastToast) {
+        this.lastToast = state.toast
+        this.snackBar.open(state.toast, '关闭', { duration: 1800 })
+      }
+    })
+  }
+
+  refresh() {
+    this.service.mergeBoard().subscribe((board) => {
+      this.store.dispatch(
+        mergeBoardLoaded({ claims: board.claims, candidates: board.candidates, conflicts: board.conflicts, sessions: board.sessions ?? [] }),
+      )
     })
   }
 }
